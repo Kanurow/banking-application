@@ -48,12 +48,4 @@ public class Transaction {
     @Valid
     private User user;
 
-    @AssertTrue(message = "Invalid transaction type")
-    public boolean isValidTransactionType() {
-        return TransactionType.DEBIT.equals(transactionType) || TransactionType.CREDIT.equals(transactionType);
-    }
-    public String getFormattedTimestamp() {
-        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("MMM dd, yyyy hh:mm a");
-        return timestamp.format(formatter);
-    }
 }

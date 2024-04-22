@@ -18,15 +18,4 @@ public class UserExceptionHandler {
         return ProblemDetail.forStatusAndDetail(HttpStatus.INTERNAL_SERVER_ERROR, exception.getMessage());
     }
 
-    @ExceptionHandler(MethodArgumentNotValidException.class)
-    public Map<String, String> handleMethodArgumentNotValidException(MethodArgumentNotValidException exception){
-        Map<String, String> errorMap = new HashMap<>();
-        exception.getBindingResult().getFieldErrors()
-                .forEach(
-                        fieldError -> {
-                            errorMap.put(fieldError.getField(), fieldError.getDefaultMessage());
-                        }
-                );
-        return errorMap;
-    }
 }

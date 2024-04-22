@@ -21,4 +21,5 @@ public class MakeTransfer {
     private String accountNumberOrEmail;
     private BankName bankToBeCredited;
     private BankName bankToBeDebited;
+
 }

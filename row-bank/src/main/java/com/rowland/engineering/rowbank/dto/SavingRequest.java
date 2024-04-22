@@ -8,6 +8,7 @@ import lombok.Builder;
 import lombok.Data;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 
 
 @Data
@@ -24,7 +25,5 @@ public class SavingRequest {
 
     @NotNull
     private SavingType savingType;
-    
-    private int durationInMonths;
-
+    private LocalDate maturityDate;
 }

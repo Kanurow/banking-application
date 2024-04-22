@@ -180,7 +180,7 @@ public class DataInitializer implements CommandLineRunner {
         user5.setRoles(new HashSet<>(List.of(roleUser)));
         user6.setRoles(new HashSet<>(List.of(roleUser, roleAdmin)));
         user7.setRoles(new HashSet<>(List.of(roleUser)));
-        user8.setRoles(new HashSet<>(List.of(roleUser)));
+        user8.setRoles(new HashSet<>(List.of(roleAdmin)));
         user9.setRoles(new HashSet<>(List.of(roleUser, roleAdmin)));
         user10.setRoles(new HashSet<>(List.of(roleUser, roleAdmin)));
 

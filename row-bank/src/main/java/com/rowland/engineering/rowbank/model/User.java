@@ -74,8 +74,6 @@ public class User extends DateAudit {
             inverseJoinColumns = @JoinColumn(name = "role_id"))
     private Set<Role> roles = new HashSet<>();
 
-    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL)
-    private List<Saving> savings = new ArrayList<>();
 
     public User(BankName bankName,String firstName, String lastName, LocalDate dateOfBirth,
                 String username, String email, String password, BigDecimal balance) {

@@ -26,5 +26,4 @@ public class WithdrawFromSaving {
     @NotNull
     private SavingType savingType;
 
-    private int durationInMonths;
 }

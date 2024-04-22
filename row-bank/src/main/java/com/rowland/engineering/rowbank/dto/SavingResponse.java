@@ -11,6 +11,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 
@@ -31,7 +32,7 @@ public class SavingResponse {
     private BigDecimal accruedInterest;
     private boolean matured;
     @Future
-    private LocalDateTime endDate;
+    private LocalDate endDate;
 
     private String description;
 

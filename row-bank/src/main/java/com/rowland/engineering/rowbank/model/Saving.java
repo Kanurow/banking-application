@@ -46,11 +46,11 @@ public class Saving {
     @NotNull
     @Enumerated(EnumType.STRING)
     private SavingType savingType;
+
     @ManyToOne
     @JoinColumn(name = "user_id")
     private User user;
 
-    @OneToMany(mappedBy = "savings", cascade = CascadeType.ALL)
-    private List<SavingHistory> savingHistories = new ArrayList<>();
-
+//    @OneToMany(mappedBy = "savings", cascade = CascadeType.ALL)
+//    private List<SavingHistory> savingHistories = new ArrayList<>();
 }

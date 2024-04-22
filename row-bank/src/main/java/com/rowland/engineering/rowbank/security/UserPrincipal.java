@@ -3,28 +3,31 @@ package com.rowland.engineering.rowbank.security;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.rowland.engineering.rowbank.model.User;
 import lombok.Data;
+import lombok.NoArgsConstructor;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 
+import java.security.Principal;
 import java.time.LocalDate;
 import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
 import java.util.stream.Collectors;
 
+
 @Data
-public class UserPrincipal implements UserDetails {
+@NoArgsConstructor
+public class UserPrincipal implements UserDetails, Principal {
     private Long id;
     private String firstName;
     private String lastName;
     private LocalDate dateOfBirth;
     private String username;
+    private String accountNumber;
 
     private String mobile;
 
-    private String vendor;
-    private String companyName;
 
     @JsonIgnore
     private String email;
@@ -35,7 +38,7 @@ public class UserPrincipal implements UserDetails {
     private Collection<? extends GrantedAuthority> authorities;
 
     public UserPrincipal(Long id, String firstName, String lastName, LocalDate dateOfBirth, String username, String email,
-                         String password, Collection<? extends GrantedAuthority> authorities) {
+                         String password, String accountNumber, Collection<? extends GrantedAuthority> authorities) {
         this.id = id;
         this.firstName = firstName;
         this.lastName = lastName;
@@ -43,6 +46,7 @@ public class UserPrincipal implements UserDetails {
         this.username = username;
         this.email = email;
         this.password = password;
+        this.accountNumber = accountNumber;
         this.authorities = authorities;
     }
 
@@ -64,6 +68,7 @@ public class UserPrincipal implements UserDetails {
                 user.getUsername(),
                 user.getEmail(),
                 user.getPassword(),
+                user.getAccountNumber(),
                 authorities
         );
     }
@@ -106,5 +111,10 @@ public class UserPrincipal implements UserDetails {
     public int hashCode() {
 
         return Objects.hash(id);
+    }
+
+    @Override
+    public String getName() {
+        return firstName;
     }
 }

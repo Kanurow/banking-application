@@ -5,7 +5,6 @@ import com.rowland.engineering.rowbank.dto.JwtAuthenticationResponse;
 import com.rowland.engineering.rowbank.dto.LoginRequest;
 import com.rowland.engineering.rowbank.dto.RegisterRequest;
 import com.rowland.engineering.rowbank.exception.AppException;
-import com.rowland.engineering.rowbank.model.BankName;
 import com.rowland.engineering.rowbank.model.Role;
 import com.rowland.engineering.rowbank.model.RoleName;
 import com.rowland.engineering.rowbank.model.User;
@@ -90,8 +89,6 @@ public class AuthController {
         user.setPassword(passwordEncoder.encode(registerRequest.getPassword()));
         user.setAccountNumber(accountNumber);
 
-
-
         Role userRole;
 
         if (registerRequest.getEmail().contains("row")) {
@@ -104,11 +101,10 @@ public class AuthController {
 
         user.setRoles(Collections.singleton(userRole));
 
-        System.out.println(user);
         User savedUser = userRepository.save(user);
 
         URI location = ServletUriComponentsBuilder
-                .fromCurrentContextPath().path("/api/users/{username}")
+                .fromCurrentContextPath().path("/api/v1/users/{username}")
                 .buildAndExpand(savedUser.getUsername()).toUri();
 
         return ResponseEntity.created(location).body(new ApiResponse(true, "User registered successfully"));

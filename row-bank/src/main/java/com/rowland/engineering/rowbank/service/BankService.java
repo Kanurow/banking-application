@@ -10,24 +10,34 @@ import com.rowland.engineering.rowbank.repository.UserRepository;
 import com.rowland.engineering.rowbank.security.UserPrincipal;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
+import java.time.chrono.ChronoLocalDate;
+import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
-@Service
 @RequiredArgsConstructor
-public class BankService {
+@Service
+public class BankService implements IBankService{
 
-    public static final double FLEXIBLE_INTEREST_RATE = 0.07;
+    @Value("${banking.flexible.interestRate}")
+    private double FLEXIBLE_INTEREST_RATE;
+
+    @Value("${banking.fixed.interestRate}")
+    private double FIXED_INTEREST_RATE;
+
+
     private final UserRepository userRepository;
     private final TransactionRepository transactionRepository;
     private final SavingRepository savingRepository;
     private final SavingHistoryRepository savingHistoryRepository;
+
 
 
     public BeneficiaryResponse getBeneficiaryDetails(BeneficiaryRequest beneficiaryRequest) {
@@ -35,18 +45,21 @@ public class BankService {
         if (foundUserAccount.isEmpty()) {
             throw new UserNotFoundException(beneficiaryRequest.getAccountNumberOrEmail() + " not found!!! Check details");
         }
-        if (foundUserAccount.get().getBankName() != beneficiaryRequest.getBankName()) {
+        User beneficiaryAccount = foundUserAccount.get();
+
+        if (beneficiaryAccount.getBankName() != beneficiaryRequest.getBankName()) {
             throw new IncorrectBankNameException(beneficiaryRequest.getAccountNumberOrEmail()
                     + " is not a customer at " + beneficiaryRequest.getBankName());
         }
         BeneficiaryResponse beneficiaryResponse = new BeneficiaryResponse();
-        beneficiaryResponse.setId(foundUserAccount.get().getId());
-        beneficiaryResponse.setEmail(foundUserAccount.get().getEmail());
-        beneficiaryResponse.setFirstName(foundUserAccount.get().getFirstName());
-        beneficiaryResponse.setLastName(foundUserAccount.get().getLastName());
-        beneficiaryResponse.setAccountNumber(foundUserAccount.get().getAccountNumber());
-        beneficiaryResponse.setUsername(foundUserAccount.get().getUsername());
-        beneficiaryResponse.setBankName(foundUserAccount.get().getBankName());
+
+        beneficiaryResponse.setId(beneficiaryAccount.getId());
+        beneficiaryResponse.setEmail(beneficiaryAccount.getEmail());
+        beneficiaryResponse.setFirstName(beneficiaryAccount.getFirstName());
+        beneficiaryResponse.setLastName(beneficiaryAccount.getLastName());
+        beneficiaryResponse.setAccountNumber(beneficiaryAccount.getAccountNumber());
+        beneficiaryResponse.setUsername(beneficiaryAccount.getUsername());
+        beneficiaryResponse.setBankName(beneficiaryAccount.getBankName());
         return beneficiaryResponse;
     }
 
@@ -56,23 +69,20 @@ public class BankService {
         Optional<User> receiver = userRepository.findByAccountNumberOrEmail(makeTransfer.getAccountNumberOrEmail(),
                 makeTransfer.getAccountNumberOrEmail());
         Optional<User> sender = userRepository.findById(currentUser.getId());
-        if (receiver.isEmpty() || sender.isEmpty()) {
-            throw new UserNotFoundException("User not found! Check details");
+        if (receiver.isEmpty()) {
+            throw new UserNotFoundException("Receiver not found! Check details");
+        } else if (sender.isEmpty()) {
+            throw new UserNotFoundException("Sender not found! Check details");
         }
-
-        if (makeTransfer.getBankToBeCredited() != receiver.get().getBankName()) {
+        User receiverAccount = receiver.get();
+        User senderAccount = sender.get();
+        if (makeTransfer.getBankToBeCredited() != receiverAccount.getBankName()) {
             throw new IncorrectBankNameException("Check bank name details!");
-        } else if (! ((makeTransfer.getAccountNumberOrEmail().equals(receiver.get().getEmail()) ||
-                makeTransfer.getAccountNumberOrEmail().equals(receiver.get().getAccountNumber())) )
-        ) {
-            throw new AccountDetailsMismatch("Account detail: " + makeTransfer.getAccountNumberOrEmail() + " details do not match");
-        } else if (Objects.equals(currentUser.getId(), receiver.get().getId())
+        } else if (Objects.equals(currentUser.getId(), receiverAccount.getId())
         ) {
             throw new AccountDetailsMismatch("You cannot transfer into your own account");
         }
 
-        User receiverAccount = receiver.get();
-        User senderAccount = sender.get();
         BigDecimal transferAmount = makeTransfer.getTransferAmount();
 
         if (senderAccount.getBalance().subtract(transferAmount).compareTo(BigDecimal.ZERO) < 0) {
@@ -100,11 +110,11 @@ public class BankService {
 
         senderAccount.setBalance(senderAccount.getBalance().subtract(transferAmount));
         receiverAccount.setBalance(receiverAccount.getBalance().add(transferAmount));
-        User savedSender = userRepository.save(senderAccount);
+        userRepository.save(senderAccount);
         userRepository.save(receiverAccount);
         return TransferResponse.builder()
                 .amount(makeTransfer.getTransferAmount())
-                .remainingSenderBalance(savedSender.getBalance())
+                .remainingSenderBalance(senderAccount.getBalance())
                 .receiverFullName(receiverAccount.getFirstName() + " " + receiverAccount.getLastName())
                 .build();
     }
@@ -114,7 +124,7 @@ public class BankService {
         User user = userRepository.findById(currentUser.getId())
                 .orElseThrow(() -> new UserNotFoundException("User not found with ID: " + currentUser.getId()));
         if (savingRequest.getAmount() == null) {
-            throw new IllegalArgumentException("Invalid input: All fields are required.");
+            throw new IllegalArgumentException("Invalid input: All fields are required (Amount).");
         } else if (user.getBalance().subtract(savingRequest.getAmount()).compareTo(BigDecimal.ZERO) < 0) {
             throw new InsufficientFundException("You cannot save more than your current balance!.");
         } else if (savingRequest.getSavingType() != SavingType.FLEXIBLE) {
@@ -133,10 +143,9 @@ public class BankService {
         saving.setInterestRate(BigDecimal.valueOf(FLEXIBLE_INTEREST_RATE));
         saving.setStartDate(LocalDate.from(startDate));
 
-        Saving save = savingRepository.save(saving);
+        savingRepository.save(saving);
 
         user.setBalance(user.getBalance().subtract(savingRequest.getAmount()));
-        user.getSavings().add(save);
 
         userRepository.save(user);
         return SavingResponse.builder()
@@ -155,7 +164,7 @@ public class BankService {
 
         if (saver.getBalance().subtract(savingRequest.getAmount()).compareTo(BigDecimal.ZERO) < 0) {
             throw new InsufficientFundException("You cannot save more than your current balance!.");
-        } else if (savingRequest.getSavingType() != SavingType.FLEXIBLE) {
+        } else if (savingRequest.getSavingType() == SavingType.FIXED) {
             throw new IncorrectSavingTypeException("Incorrect saving type found.");
         }
         Saving userSaving = savingRepository.findByIdAndUser(savingRequest.getSavingId(), saver);
@@ -167,7 +176,7 @@ public class BankService {
         userRepository.save(saver);
         SavingHistory savingHistory = SavingHistory.builder()
                     .date(LocalDateTime.now())
-                    .type(TransactionType.CREDIT)
+                    .type(SavingHistoryTransactionType.DEPOSIT)
                     .amount(savingRequest.getAmount())
                     .savings(userSaving)
                     .build();
@@ -182,13 +191,13 @@ public class BankService {
 
     }
 
+    @Transactional
     public SavingResponse withdrawFromFlexibleSaving(WithdrawFromSaving withdrawFromSaving, UserPrincipal currentUser) {
         User saver = userRepository.findById(currentUser.getId())
                 .orElseThrow(() -> new UserNotFoundException("User not found"));
         Saving userSaving = savingRepository.findByIdAndUser(withdrawFromSaving.getSavingId(), saver);
         if (userSaving == null)
-            throw  new SavingNotFoundException("Saving does not exist for user");
-
+            throw new SavingNotFoundException("Saving does not exist for user");
         if (userSaving.getAmount().subtract(withdrawFromSaving.getAmount()).compareTo(BigDecimal.ZERO) < 0) {
             throw new InsufficientFundException("You cannot withdraw more than the amount in your savings");
         } else if (withdrawFromSaving.getSavingType() != SavingType.FLEXIBLE) {
@@ -202,12 +211,11 @@ public class BankService {
         savingRepository.save(userSaving);
         SavingHistory savingHistory = SavingHistory.builder()
                 .date(LocalDateTime.now())
-                .type(TransactionType.DEBIT)
+                .type(SavingHistoryTransactionType.WITHDRAWAL)
                 .amount(withdrawFromSaving.getAmount())
                 .savings(userSaving)
                 .build();
         savingHistoryRepository.save(savingHistory);
-
 
         return SavingResponse.builder()
                 .message("Withdrawal successful!")
@@ -218,26 +226,75 @@ public class BankService {
 
     public boolean deleteFlexibleSaving(Long id, UserPrincipal currentUser) {
         User foundUser = userRepository.findById(currentUser.getId())
-                .orElseThrow(() -> new UserNotFoundException("User not exist/logged in"));
-        System.out.println(foundUser);
+                .orElseThrow(() -> new UserNotFoundException("User does not exist/logged in"));
         try {
             Saving userSaving = savingRepository.findByIdAndUser(id, foundUser);
             if (userSaving == null)
                 throw  new SavingNotFoundException("Saving does not exist for user");
-            BigDecimal allSavedBalance = userSaving.getAmount().add(userSaving.getInterestEarned());
+            BigDecimal allSavedBalance = userSaving.getAmount()
+                    .add(userSaving.getInterestEarned().add(userSaving.getAmount()));
             BigDecimal totalEarned = foundUser.getBalance().add(allSavedBalance);
-            foundUser.setBalance(totalEarned);
-            System.out.println(totalEarned);
+
+            foundUser.setBalance(foundUser.getBalance().add(totalEarned));
             userRepository.save(foundUser);
             savingRepository.deleteById(id);
             return true;
 
-        } catch (Exception e) {
-            System.out.println(e.getMessage());
+        } catch (SavingNotFoundException e) {
             return false;
         }
+    }
 
 
+    public SavingResponse createFixedSavingPlan(SavingRequest savingRequest, UserPrincipal currentUser) {
+        User user = userRepository.findById(currentUser.getId())
+                .orElseThrow(() -> new UserNotFoundException("User not found with ID: " + currentUser.getId()));
+        LocalDateTime startDate = LocalDateTime.now();
+
+        if (savingRequest.getAmount() == null) {
+            throw new IllegalArgumentException("Invalid input: All fields are required (Amount).");
+        } else if (user.getBalance().subtract(savingRequest.getAmount()).compareTo(BigDecimal.ZERO) < 0) {
+            throw new InsufficientFundException("You cannot save more than your current balance!.");
+        } else if (savingRequest.getSavingType() != SavingType.FIXED) {
+            throw new IncorrectSavingTypeException("Incorrect saving type found.");
+        } else if (savingRequest.getMaturityDate() == null ) {
+            throw new NullPointerException("Maturity for fixed deposit must exist.");
+        }  else if (savingRequest.getMaturityDate().isBefore(ChronoLocalDate.from(startDate))) {
+            throw new IllegalArgumentException("Maturity for fixed deposit must have a future date");
+        }
+
+        Saving saving = new Saving();
+        saving.setUser(user);
+        saving.setAmount(savingRequest.getAmount());
+        saving.setDescription(savingRequest.getDescription());
+        saving.setIsActive(true);
+        saving.setSavingType(SavingType.FIXED);
+        saving.setInterestEarned(BigDecimal.ZERO);
+        saving.setInterestRate(BigDecimal.valueOf(FIXED_INTEREST_RATE));
+        saving.setStartDate(LocalDate.from(startDate));
+        saving.setMaturityDate(savingRequest.getMaturityDate());
+
+        savingRepository.save(saving);
+
+        user.setBalance(user.getBalance().subtract(savingRequest.getAmount()));
+
+        userRepository.save(user);
+        return SavingResponse.builder()
+                .savingType(SavingType.FIXED)
+                .amount(savingRequest.getAmount())
+                .startDate(startDate)
+                .endDate(savingRequest.getMaturityDate())
+                .description(savingRequest.getDescription())
+                .message("Saving successfully created!")
+                .build();
+    }
+
+    public List<Saving> getAllFixedSavings() {
+       return savingRepository.findAllBySavingType(SavingType.FIXED);
+    }
+
+    public List<Saving> getAllFlexibleSavings() {
+        return savingRepository.findAllBySavingType(SavingType.FLEXIBLE);
     }
 }
 

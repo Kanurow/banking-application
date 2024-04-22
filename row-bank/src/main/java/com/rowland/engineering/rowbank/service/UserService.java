@@ -19,58 +19,50 @@ import java.util.Optional;
 
 @RequiredArgsConstructor
 @Service
-public class UserService {
+public class UserService implements IUserService {
     private final UserRepository userRepository;
     private final TransactionRepository transactionRepository;
-
     @Transactional
     public void makeDeposit(MakeDeposit deposit, UserPrincipal currentUser) {
-        Optional<User> foundUser = userRepository.findById(currentUser.getId());
-        System.out.println(foundUser.get());
-        if (foundUser.isPresent()) {
-            User user = foundUser.get();
-            user.setBalance(user.getBalance().add(deposit.getDepositAmount()));
-            Transaction transaction = Transaction.builder()
-                    .transactionType(TransactionType.CREDIT)
-                    .bankName(foundUser.get().getBankName())
-                    .amount(deposit.getDepositAmount())
-                    .description(deposit.getDescription())
-                    .timestamp(LocalDateTime.now())
-                    .user(user)
-                    .build();
-            transactionRepository.save(transaction);
-            userRepository.save(user);
-        } else {
-            throw new UserNotFoundException("User with id: " +currentUser.getId()+ " not found");
-        }
+        User user = userRepository.findById(currentUser.getId())
+                .orElseThrow(() -> new UserNotFoundException("User with id: " + currentUser.getId() + " not found"));
+        user.setBalance(user.getBalance().add(deposit.getDepositAmount()));
+
+        Transaction transaction = Transaction.builder()
+                .transactionType(TransactionType.CREDIT)
+                .bankName(user.getBankName())
+                .amount(deposit.getDepositAmount())
+                .description(deposit.getDescription())
+                .timestamp(LocalDateTime.now())
+                .user(user)
+                .build();
+
+        transactionRepository.save(transaction);
+        userRepository.save(user);
     }
 
     public Optional<UserResponse> findUserDetails(Long userId) {
-        Optional<User> foundUser = Optional.ofNullable(userRepository.findById(userId)
-                .orElseThrow(() -> new UserNotFoundException("User with id: "+ userId + "not found")));
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new UserNotFoundException("User with id: " + userId + " not found"));
 
-        return foundUser.stream().map(user -> {
-            UserResponse userDetail = new UserResponse();
-            userDetail.setId(user.getId());
-            userDetail.setUsername(user.getUsername());
-            userDetail.setAccountNumber(user.getAccountNumber());
-            userDetail.setUsername(user.getUsername());
-            userDetail.setEmail(user.getEmail());
-            userDetail.setBalance(user.getBalance());
-            userDetail.setFirstName(user.getFirstName());
-            userDetail.setLastName(user.getLastName());
-            userDetail.setDateOfBirth(user.getDateOfBirth());
-            userDetail.setRoles(user.getRoles());
-            return userDetail;
-        }).findFirst();
+        UserResponse userDetail = new UserResponse();
+        userDetail.setId(user.getId());
+        userDetail.setUsername(user.getUsername());
+        userDetail.setAccountNumber(user.getAccountNumber());
+        userDetail.setEmail(user.getEmail());
+        userDetail.setBalance(user.getBalance());
+        userDetail.setFirstName(user.getFirstName());
+        userDetail.setLastName(user.getLastName());
+        userDetail.setDateOfBirth(user.getDateOfBirth());
+        userDetail.setRoles(user.getRoles());
+
+        return Optional.of(userDetail);
     }
 
     public UserSummary findUserByAccountNumberOrEmail(String accountNumberOrEmail) {
-        Optional<User> foundUser = userRepository.findByAccountNumberOrEmail(accountNumberOrEmail, accountNumberOrEmail);
-        if (foundUser.isEmpty()) {
-            throw new UserNotFoundException("Please confirm account information!");
-        }
-        User user = foundUser.get();
+        User user = userRepository.findByAccountNumberOrEmail(accountNumberOrEmail, accountNumberOrEmail)
+                .orElseThrow(() -> new UserNotFoundException("Please confirm account information!"));
+
         return UserSummary.builder()
                 .id(user.getId())
                 .accountNumber(user.getAccountNumber())
@@ -79,5 +71,14 @@ public class UserService {
                 .firstName(user.getFirstName())
                 .lastName(user.getLastName())
                 .build();
+    }
+
+    public boolean deleteUser(Long userId) {
+        try{
+            userRepository.deleteById(userId);
+            return true;
+        } catch (UserNotFoundException e) {
+            return false;
+        }
     }
 }

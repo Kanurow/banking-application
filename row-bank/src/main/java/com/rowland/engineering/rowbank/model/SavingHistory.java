@@ -23,7 +23,7 @@ public class SavingHistory {
     private BigDecimal amount;
 
     @Enumerated(EnumType.STRING)
-    private TransactionType type;
+    private SavingHistoryTransactionType type;
 
     private LocalDateTime date;
 

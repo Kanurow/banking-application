@@ -27,5 +27,4 @@ public class TopUpSavings {
     @NotNull
     private SavingType savingType;
 
-    private int durationInMonths;
 }
